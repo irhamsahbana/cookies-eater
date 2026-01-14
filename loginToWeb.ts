@@ -34,6 +34,8 @@ export const loginToWeb = async (
 
   await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
   console.log('✅ Login page opened.');
+  await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {});
+  await waitForLoginForm(page, 20000).catch(() => {});
 
   const invalidSession = await page.evaluate(() => {
     const t = (document.body?.innerText || '').toLowerCase();
@@ -51,15 +53,15 @@ export const loginToWeb = async (
   }
 
   const [emailEl, passwordEl] = await Promise.all([
-    findInFrames(page, selectors.emailInput, 800),
-    findInFrames(page, selectors.passwordInput, 800),
+    findInFrames(page, selectors.emailInput, 2000),
+    findInFrames(page, selectors.passwordInput, 2000),
   ]);
   console.log('⌨️ Typing email...');
   await typeHandle(page, emailEl, EMAIL);
 
-  let companyEl = await findInFrames(page, selectors.companyIdInput, 1000).catch(() => null);
+  let companyEl = await findInFrames(page, selectors.companyIdInput, 1500).catch(() => null);
   if (!companyEl) {
-    companyEl = await findInputByLabelAcrossFrames(page, /company\s*id/i, 1000).catch(() => null);
+    companyEl = await findInputByLabelAcrossFrames(page, /company\s*id/i, 2000).catch(() => null);
   }
   if (companyEl) {
     await typeHandle(page, companyEl, COMPANY_ID);
@@ -133,6 +135,30 @@ const findInFrames = async (
   throw new Error(`Selector not found across frames: ${selector}`);
 };
 
+const hasInFrames = async (page: Page, selector: string): Promise<boolean> => {
+  const frames = page.frames();
+  for (const frame of frames) {
+    try {
+      const el = await frame.$(selector);
+      if (el) return true;
+    } catch {}
+  }
+  return false;
+};
+
+const waitForLoginForm = async (page: Page, timeout = 20000) => {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try {
+      const hostOk = await page.evaluate(() => location.hostname.includes('cronus.edot-dev.com'));
+      const emailOk = await hasInFrames(page, selectors.emailInput);
+      const passOk = await hasInFrames(page, selectors.passwordInput);
+      if ((hostOk || emailOk) && passOk) return;
+    } catch {}
+    await new Promise((r) => setTimeout(r, 150));
+  }
+};
+
 const typeHandle = async (page: Page, handle: ElementHandle<Element>, text: string) => {
   await handle.focus();
   await handle.click({ clickCount: 3 });
@@ -181,19 +207,24 @@ const findInputByLabelAcrossFrames = async (
   while (Date.now() - start < timeout) {
     const frames = page.frames();
     for (const frame of frames) {
-      const handle = await frame.evaluateHandle((patternSource) => {
-        const re = new RegExp(patternSource, 'i');
-        const labels = Array.from(document.querySelectorAll('label'));
-        for (const label of labels) {
-          const txt = (label.textContent || '').trim();
-          if (re.test(txt)) {
-            const container = label.parentElement;
-            const candidate = container?.querySelector('input') || container?.parentElement?.querySelector('input') || null;
-            if (candidate) return candidate;
+      let handle: any = null;
+      try {
+        handle = await frame.evaluateHandle((patternSource) => {
+          const re = new RegExp(patternSource, 'i');
+          const labels = Array.from(document.querySelectorAll('label'));
+          for (const label of labels) {
+            const txt = (label.textContent || '').trim();
+            if (re.test(txt)) {
+              const container = label.parentElement;
+              const candidate = container?.querySelector('input') || container?.parentElement?.querySelector('input') || null;
+              if (candidate) return candidate;
+            }
           }
-        }
-        return null;
-      }, labelPattern.source);
+          return null;
+        }, labelPattern.source);
+      } catch {
+        handle = null;
+      }
       const el = handle.asElement();
       if (el) return el as ElementHandle<Element>;
     }
