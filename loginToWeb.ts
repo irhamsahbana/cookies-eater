@@ -3,8 +3,9 @@ import 'dotenv/config';
 import { selectors } from './selectors';
 
 export const loginToWeb = async (
-  opts?: { email?: string; password?: string; companyId?: string; url?: string }
+  opts?: { email?: string; password?: string; companyId?: string; url?: string; webEnv?: string }
 ): Promise<any[]> => {
+  const WEB_ENV = opts?.webEnv ?? process.env.WEB_ENV ?? 'development';
   const IS_HEADLESS = process.env.ENVIRONMENT === 'PRODUCTION';
   const EMAIL = opts?.email ?? process.env.EMAIL ?? '';
   const PASSWORD = opts?.password ?? process.env.PASSWORD ?? '';
@@ -29,7 +30,8 @@ export const loginToWeb = async (
   await page.setDefaultTimeout(20000);
   await page.setDefaultNavigationTimeout(20000);
 
-  const URL = opts?.url ?? process.env.WEB_URL ?? ''
+  const envUrl = WEB_ENV === 'development' ? process.env.WEB_URL_DEV : process.env.WEB_URL_STG;
+  const URL = opts?.url ?? envUrl ?? '';
   console.log(`🚀 Navigating to ${URL}...`);
 
   await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });

@@ -45,18 +45,20 @@ Follow these instructions to get a copy of the project up and running on your lo
     Now, edit the `.env` file with your actual credentials and target URL:
 
     ```ini
-    # The website you want to log into
-    WEB_URL="https://example.com"
+    # Environment (development or production)
+    WEB_ENV=development
+
+    # Target URLs
+    WEB_URL_DEV="https://dev.example.com"
+    WEB_URL_STG="https://stg.example.com"
 
     # Your login credentials
     EMAIL="your-email@example.com"
     PASSWORD="your-super-secret-password"
+    COMPANY_ID="your-company-id"
 
-    # Server port (optional, defaults to 3000)
-    PORT=3000
-
-    # Set to "DEVELOPMENT" to run in headed mode for debugging
-    ENVIRONMENT="PRODUCTION"
+    # Server port (optional, defaults to 3333)
+    PORT=3333
     ```
 
 ## Usage
