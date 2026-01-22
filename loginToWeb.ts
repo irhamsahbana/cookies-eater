@@ -107,8 +107,13 @@ export const loginToWeb = async (
   }
 
   console.log('⏳ Waiting for navigation after login...');
-  console.log('✅ Login flow completed.');
-  await waitCookiesChanged(browser, beforeCookiesLen, 3000).catch(() => {});
+  
+  const tokenFound = await waitForAccessToken(browser, 15000);
+  if (tokenFound) {
+    console.log('✅ Login flow completed. Access token found.');
+  } else {
+    console.warn('⚠️ Login flow finished but access_token cookie was not found.');
+  }
 
   const savedCookies = await getFormattedCookies(browser);
 
@@ -116,6 +121,21 @@ export const loginToWeb = async (
   await browser.close();
 
   return savedCookies;
+};
+
+const waitForAccessToken = async (
+  browser: Browser,
+  timeout = 15000,
+): Promise<boolean> => {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const cookies = await browser.defaultBrowserContext().cookies();
+    if (cookies.some((c) => c.name === 'access_token' && c.value)) {
+      return true;
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return false;
 };
 
 const findInFrames = async (
@@ -285,18 +305,6 @@ const findLoginButtonAcrossFrames = async (
   throw new Error('Login button not found');
 };
 
-const waitCookiesChanged = async (
-  browser: Browser,
-  previousCount: number,
-  timeout = 3000,
-) => {
-  const start = Date.now();
-  while (Date.now() - start < timeout) {
-    const cookies = await browser.defaultBrowserContext().cookies();
-    if (cookies.length > previousCount) return;
-    await new Promise((r) => setTimeout(r, 150));
-  }
-};
 
 const waitClickable = async (
   handle: ElementHandle<Element>,
